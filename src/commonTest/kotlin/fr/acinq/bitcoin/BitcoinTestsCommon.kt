@@ -4,10 +4,9 @@ import fr.acinq.bitcoin.Bitcoin.addressFromPublicKeyScript
 import fr.acinq.bitcoin.Bitcoin.computeP2PkhAddress
 import fr.acinq.bitcoin.Bitcoin.computeP2ShOfP2WpkhAddress
 import fr.acinq.bitcoin.Bitcoin.computeP2WpkhAddress
+import fr.acinq.bitcoin.Bitcoin.findVanityP2wpkhPrivateKey
 import fr.acinq.secp256k1.Hex
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFails
+import kotlin.test.*
 
 class BitcoinTestsCommon {
     @Test
@@ -104,5 +103,26 @@ class BitcoinTestsCommon {
         assertEquals(Bitcoin.addressToPublicKeyScript(Block.LivenetGenesisBlock.hash, Bech32.encodeWitnessAddress("bc", 0, Crypto.sha256(script))), Script.pay2wsh(script))
         assertEquals(Bitcoin.addressToPublicKeyScript(Block.TestnetGenesisBlock.hash, Bech32.encodeWitnessAddress("tb", 0, Crypto.sha256(script))), Script.pay2wsh(script))
         assertEquals(Bitcoin.addressToPublicKeyScript(Block.RegtestGenesisBlock.hash, Bech32.encodeWitnessAddress("bcrt", 0, Crypto.sha256(script))), Script.pay2wsh(script))
+    }
+
+    @Test
+    fun `compute vanity address`() {
+        // different chains with different length hrp
+        var prefix = "acq"
+        for (chainHash in listOf(Block.LivenetGenesisBlock.hash, Block.TestnetGenesisBlock.hash, Block.RegtestGenesisBlock.hash)) {
+            val key = findVanityP2wpkhPrivateKey(chainHash, prefix, 1000000)
+            assertNotEquals(key, null)
+            if (key != null) {
+                assertTrue(key.isValid())
+                val address = computeP2WpkhAddress(key.publicKey(), chainHash)
+                assertTrue(address.startsWith(prefix, Bech32.hrp(chainHash).length + 2, true))
+                println(address)
+            }
+        }
+
+        // impossible prefix because 1 is not in the Bech32.alphabet
+        prefix = "ac1"
+        val key = findVanityP2wpkhPrivateKey(Block.LivenetGenesisBlock.hash, prefix, 1000000)
+        assertEquals(key, null)
     }
 }

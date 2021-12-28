@@ -17,6 +17,7 @@
 package fr.acinq.bitcoin
 
 import kotlin.jvm.JvmStatic
+import kotlin.random.Random
 
 public const val MaxBlockSize: Int = 1000000
 
@@ -150,5 +151,25 @@ public object Bitcoin {
                 )
             }
         )
+    }
+
+    /**
+     * @param chainHash chain hash (i.e. hash of the genesis block of the chain we're on)
+     * @param prefix vanity string prefix that includes only characters in Bech32.alphabet
+     * @param count number of tries to find vanity address
+     * @return first private key in the range that generates a p2wpkh address with the specified prefix
+     *         or `null` if none found
+     */
+    public fun findVanityP2wpkhPrivateKey(chainHash: ByteVector32, prefix: String, count: Long): PrivateKey? {
+        val random = Random
+        for (i in LongRange(1, count)) {
+            val key = PrivateKey(random.nextBytes(32))
+            val address = computeP2WpkhAddress(key.publicKey(), chainHash)
+            // prefix comes after hrp [bc,tb,..], separator [1] and encoded witness version [0,1..]
+            if (address.startsWith(prefix,Bech32.hrp(chainHash).length + 2, true) && key.isValid()) {
+                return key
+            }
+        }
+        return null
     }
 }
